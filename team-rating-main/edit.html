@@ -929,12 +929,12 @@
         // ============================================================
         // 1. КОНФИГУРАЦИЯ
         // ============================================================
-        const API_URL = 'https://script.google.com/macros/s/AKfycbw7fz6v2m2_75cgiGjhYbx2aji5O2bUvJBSZRuoXjpyPQ1QB6Uy86AqHi2DFoS9fqpL/exec';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbyby_OOK8FFm7xrlBpdRC49l17dgXUVI1gq9WeczJDELVakVwXbeyoUYQUlJnDTfRqJ/exec';
 
         // ============================================================
-        // 2. ДАННЫЕ — КОМАНДЫ
+        // 2. ДАННЫЕ — ЛОКАЛЬНЫЙ РЕЗЕРВ
         // ============================================================
-        let teams = [
+        const DEFAULT_TEAMS = [
             { id: 1, name: "Now Gang In God", rating: 1400 },
             { id: 2, name: "ZaWiskasom", rating: 1800 },
             { id: 3, name: "Vombo Combo", rating: 1800 },
@@ -974,6 +974,7 @@
             { id: 37, name: "MUV x RODINA", rating: 1100 },
         ];
 
+        let teams = JSON.parse(JSON.stringify(DEFAULT_TEAMS));
         let games = [];
         let winners = [];
         let isLoading = false;
@@ -991,19 +992,24 @@
         }
 
         // ============================================================
-        // 4. РАБОТА С ОБЛАКОМ
+        // 4. РАБОТА С ОБЛАКОМ (ТАЙМАУТ 3 СЕКУНДЫ)
         // ============================================================
         async function loadFromCloud() {
             if (isLoading) return;
             isLoading = true;
             setStatus('Загрузка...', 'loading');
 
+            // Мгновенно показываем локальные данные
+            renderAll();
+
+            // Пытаемся загрузить из облака с таймаутом 3 секунды
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 30000);
+            const timeout = setTimeout(() => controller.abort(), 3000);
 
             try {
                 const resp = await fetch(API_URL, { signal: controller.signal });
                 clearTimeout(timeout);
+
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 const data = await resp.json();
                 if (data.error) throw new Error(data.error);
@@ -1022,18 +1028,16 @@
                 isFirstLoad = false;
                 renderAll();
                 setStatus('Загружено', 'loaded');
-
                 setTimeout(initAboutSliders, 500);
             } catch (e) {
                 clearTimeout(timeout);
-                console.error('Ошибка загрузки:', e);
+                // Тихо переключаемся в офлайн-режим
                 if (e.name === 'AbortError') {
-                    setStatus('Таймаут', 'error');
+                    setStatus('Офлайн-режим', 'error');
                 } else {
                     setStatus('Офлайн-режим', 'error');
                 }
-                renderAll();
-                setTimeout(initAboutSliders, 500);
+                // Данные уже отрендерены
             }
             isLoading = false;
         }
@@ -1060,7 +1064,7 @@
         }
 
         // ============================================================
-        // 5. РАСЧЁТ РЕЙТИНГА (СТАРАЯ ЧУВСТВИТЕЛЬНОСТЬ)
+        // 5. РАСЧЁТ РЕЙТИНГА
         // ============================================================
         function getK(rating) {
             if (rating < 1000) return 40;
